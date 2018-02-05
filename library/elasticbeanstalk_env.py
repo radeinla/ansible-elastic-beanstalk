@@ -235,19 +235,21 @@ def update_required(ebs, env, params):
 
     return updates
 
-def new_or_changed_option(options, setting):
-    for option in options:
-        if option["Namespace"] == setting["Namespace"] and \
-            option["OptionName"] == setting["OptionName"]:
-
-            if (setting['Namespace'] in ['aws:autoscaling:launchconfiguration','aws:ec2:vpc'] and \
-                setting['OptionName'] in ['SecurityGroups', 'ELBSubnets', 'Subnets'] and \
-                set(setting['Value'].split(',')).issubset(setting['Value'].split(','))) or \
-                option["Value"] == setting["Value"]:
+def new_or_changed_option(current_options, setting):
+    for current_option in current_options:
+        if current_option["Namespace"] == setting["Namespace"] and \
+            current_option["OptionName"] == setting["OptionName"]:
+            current_option_has_value = "Value" in current_option
+            multi_valued_option = setting['Namespace'] in ['aws:autoscaling:launchconfiguration','aws:ec2:vpc'] and \
+                setting['OptionName'] in ['SecurityGroups', 'ELBSubnets', 'Subnets']
+            multi_value_same = multi_valued_option and current_option_has_value and (set(setting['Value'].split(',')).intersection(current_option['Value'].split(',')) == set(setting['Value']))
+            single_value_same = current_option_has_value and current_option["Value"] == setting["Value"]
+            if not current_option_has_value:
+                return (current_option["Namespace"] + ':' + current_option["OptionName"], "<NEW>", setting["Value"])
+            elif multi_value_same or single_value_same:
                 return None
             else:
-                return (option["Namespace"] + ':' + option["OptionName"], option["Value"], setting["Value"])
-
+                return (current_option["Namespace"] + ':' + current_option["OptionName"], current_option["Value"], setting["Value"])
     return (setting["Namespace"] + ':' + setting["OptionName"], "<NEW>", setting["Value"])
 
 def check_env(ebs, app_name, env_name, module):
